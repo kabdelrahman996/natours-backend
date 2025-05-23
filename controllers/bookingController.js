@@ -43,7 +43,7 @@ exports.getCheckoutSession = catchAsync(async (req, res, next) => {
 
 // 4242 4242 4242 4242
 exports.createBookingCheckout = catchAsync(async (req, res, next) => {
-  console.log(req.query);
+  // console.log(req.query);
   // This is only TEMPORARY, because it's unsecure: everyone can make bookings without paying
   const { tour, user, price } = req.query;
 
@@ -62,8 +62,8 @@ exports.getMyTours = catchAsync(async (req, res, next) => {
   const tourIDs = bookings.map((el) => el.tour);
   const tours = await Tour.find({ _id: { $in: tourIDs } });
 
-  console.log(bookings);
-  console.log(tours);
+  // console.log(bookings);
+  // console.log(tours);
 
   res.status(200).json({
     status: 'success',

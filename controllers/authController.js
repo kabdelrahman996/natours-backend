@@ -46,7 +46,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   });
 
   const url = `http://localhost:4200/me`;
-  console.log(url);
+  // console.log(url);
   await new Email(newUser, url).sendWelcome();
 
   createSendToken(newUser, 201, res);

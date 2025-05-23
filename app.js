@@ -9,6 +9,7 @@ const hpp = require('hpp');
 const cors = require('cors'); // Require cors
 
 const pug = require('pug');
+const compression = require('compression');
 
 const AppError = require('./utils/appError');
 const golbalErrorHandler = require('./controllers/errorController');
@@ -59,6 +60,9 @@ app.use(
     ],
   })
 );
+
+// Compression
+app.use(compression());
 
 // Limit requests from same API
 const limiter = rateLimit({

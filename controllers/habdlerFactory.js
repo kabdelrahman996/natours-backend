@@ -18,7 +18,7 @@ exports.deleteOne = (model) =>
 
 exports.updateOne = (model) =>
   catchAsync(async (req, res, next) => {
-    console.log(req.body);
+    // console.log(req.body);
     ['startDates', 'startLocation', 'locations'].forEach((key) => {
       if (req.body[key] && typeof req.body[key] === 'string') {
         req.body[key] = JSON.parse(req.body[key]);
@@ -55,7 +55,7 @@ exports.updateOne = (model) =>
 
 exports.createOne = (model) =>
   catchAsync(async (req, res, next) => {
-    console.log(req.body);
+    // console.log(req.body);
     // Parse JSON fields
     ['startDates', 'startLocation', 'locations'].forEach((key) => {
       if (req.body[key] && typeof req.body[key] === 'string') {
