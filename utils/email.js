@@ -10,10 +10,10 @@ module.exports = class Email {
     this.from = `Abdelrahman Khaled <${process.env.EMAIL_FROM}>`;
   }
   createTransport() {
-    if (process.env.NODE_ENV === 'production') {
-      // Sendgrid
-      return 1;
-    }
+    // if (process.env.NODE_ENV === 'production') {
+    //   // Sendgrid
+    //   return 1;
+    // }
 
     return nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
