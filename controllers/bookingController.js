@@ -43,7 +43,8 @@ exports.getCheckoutSession = catchAsync(async (req, res, next) => {
 
 // 4242 4242 4242 4242
 exports.createBookingCheckout = catchAsync(async (req, res, next) => {
-  // console.log(req.query);
+  console.log('Creating booking checkout session...');
+  console.log(req.query);
   // This is only TEMPORARY, because it's unsecure: everyone can make bookings without paying
   const { tour, user, price } = req.query;
 
