@@ -1,0 +1,601 @@
+عايزك تكتب prompt ل AI Model عشان يعمل frontEnd Angular modular لكود باك اند انا كاتبه node.js : 
+Routes : 
+const express = require('express');
+const router = express.Router();
+const bookingController = require('../controllers/bookingController');
+const authController = require('../controllers/authController');
+
+router.use(authController.protect);
+
+router.get('/checkout-session/:tourId', bookingController.getCheckoutSession);
+
+router.use(authController.restrictTo('admin', 'lead-guide'));
+router
+  .route('/')
+  .get(bookingController.getAllBookings)
+  .post(bookingController.createBooking);
+
+router
+  .route('/:id')
+  .get(bookingController.getBooking)
+  .patch(bookingController.updateBooking)
+  .delete(bookingController.deleteBooking);
+
+module.exports = router;
+
+
+const reviewControllers = require('../controllers/reviewControllers');
+const authController = require('../controllers/authController');
+const express = require('express');
+
+const router = express.Router({ mergeParams: true });
+
+// Protect all routes after this middleware
+router.use(authController.protect);
+
+router
+  .route('/')
+  .get(reviewControllers.getAllReviews)
+  .post(
+    authController.restrictTo('user'),
+    reviewControllers.setTourUserIds,
+    reviewControllers.createReview
+  );
+
+router
+  .route('/:id')
+  .patch(authController.restrictTo('user'), reviewControllers.updateReview)
+  .delete(authController.restrictTo('admin'), reviewControllers.deleteReview);
+
+module.exports = router;
+
+
+const express = require('express');
+const tourController = require('../controllers/tourControllers');
+const authController = require('./../controllers/authController');
+const bookingController = require('./../controllers/bookingController');
+const reviewRourer = require('./reviewRoutes');
+
+const router = express.Router();
+
+router.use('/:tourId/reviews', reviewRourer);
+
+router
+  .route('/top-5-cheap')
+  .get(tourController.aliasTopTours, tourController.getAllTours);
+
+router.route('/tour-stats').get(tourController.getTourStats);
+
+router
+  .route('/monthly-plan/:year')
+  .get(
+    authController.protect,
+    authController.restrictTo('admin', 'lead-guide'),
+    tourController.getMonthlyPlan
+  );
+
+router
+  .route('/tours-within/:distance/center/:latlng/unit/:unit')
+  .get(tourController.getToursWithin);
+
+router.route('/distance/:latlng/unit/:unit').get(tourController.getDistances);
+
+router
+  .route('/')
+  .get(bookingController.createBookingCheckout, tourController.getAllTours)
+  .post(
+    authController.protect,
+    authController.restrictTo('admin', 'lead-guide'),
+    tourController.uploadTourImages,
+    tourController.resizeTourImages,
+    tourController.creatTour
+  );
+router
+  .route('/:id')
+  .get(tourController.getTour)
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin', 'lead-guide'),
+    tourController.uploadTourImages,
+    tourController.resizeTourImages,
+    tourController.updateTour
+  )
+  .delete(
+    authController.protect,
+    authController.restrictTo('admin', 'lead-guide'),
+    tourController.deletTour
+  );
+
+module.exports = router;
+
+
+const express = require('express');
+const userController = require('../controllers/userControllers');
+const authController = require('../controllers/authController');
+const bookingController = require('../controllers/bookingController');
+const router = express.Router();
+
+router.post('/signup', authController.signup);
+router.post('/login', authController.login);
+router.get('/logout', authController.logout);
+router.post('/forgotPassword', authController.forgotPassword);
+router.patch('/resetPassword/:token', authController.resetPassword);
+
+// Protect all routes after this middleware
+router.use(authController.protect);
+
+router.patch('/updateMyPassword', authController.updatePassword);
+
+router.get('/me', userController.getMe, userController.getUser);
+
+router.get('/myBookings', bookingController.getMyTours);
+router.patch(
+  '/updateMe',
+  userController.uploadUserPhoto,
+  userController.resizeUserPhoto,
+  userController.updateMe
+);
+router.delete('/deleteMe', userController.deleteMe);
+
+router
+  .route('/')
+  .get(authController.restrictTo('admin'), userController.getAllUsers)
+  .post(userController.createUser);
+router
+  .route('/:id')
+  .get(authController.restrictTo('admin'), userController.getUser)
+  .patch(authController.restrictTo('admin'), userController.updateUser)
+  .delete(authController.restrictTo('admin'), userController.deleteUser);
+
+module.exports = router;
+
+
+************
+
+Models:
+
+const mongoose = require('mongoose');
+
+const bookingSchema = new mongoose.Schema({
+  tour: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Tour',
+    required: [true, 'Booking must belong to a tour'],
+  },
+  user: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    required: [true, 'Booking must belong to a user'],
+  },
+  price: {
+    type: Number,
+    required: [true, 'Booking must have a price'],
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now(),
+  },
+  paid: {
+    type: Boolean,
+    default: true,
+  },
+});
+
+bookingSchema.pre(/^find/, function (next) {
+  this.populate('user').populate({
+    path: 'tour',
+    select: 'name',
+  });
+  next();
+});
+
+const booking = mongoose.model('Booking', bookingSchema);
+
+module.exports = booking;
+
+
+const mongoose = require('mongoose');
+const Tour = require('./tourModel');
+
+const reviewSchema = new mongoose.Schema(
+  {
+    review: {
+      type: String,
+      required: [true, 'Can not be empty!'],
+    },
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now(),
+    },
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: [true, 'Review must belong to a user!'],
+    },
+    tour: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Tour',
+      required: [true, 'Review must belong to a tour!'],
+    },
+  },
+  {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
+
+reviewSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: 'user',
+    select: 'name photo',
+  });
+  next();
+});
+
+reviewSchema.statics.calcAverageRatings = async function (tourId) {
+  const stats = await this.aggregate([
+    {
+      $match: { tour: tourId },
+    },
+    {
+      $group: {
+        _id: '$tour',
+        nRating: { $sum: 1 },
+        avgRating: { $avg: '$rating' },
+      },
+    },
+  ]);
+  // console.log(stats);
+  if (stats.length > 0) {
+    await Tour.findByIdAndUpdate(tourId, {
+      ratingsAverage: stats[0].avgRating,
+      ratingsQuantity: stats[0].nRating,
+    });
+  } else {
+    await Tour.findByIdAndUpdate(tourId, {
+      ratingsAverage: 4.5,
+      ratingsQuantity: 0,
+    });
+  }
+};
+
+reviewSchema.post('save', function () {
+  // this points to current review
+  this.constructor.calcAverageRatings(this.tour);
+});
+
+// findByIdAndUpdate
+// findByIdAndDelete
+
+reviewSchema.pre(/^findOneAnd/, async function (next) {
+  // this points to current query
+  this.r = await this.findOne();
+  // console.log(this.r);
+  next();
+});
+
+reviewSchema.post(/^findOneAnd/, function () {
+  // this points to current query
+  this.r.constructor.calcAverageRatings(this.r.tour);
+});
+
+module.exports = mongoose.model('Review', reviewSchema);
+
+
+const mongoose = require('mongoose');
+const slugify = require('slugify');
+// const validator = require('validator');
+// const User = require('./userModel');
+
+const tourSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'A tour must have a name!'],
+      unique: true,
+      trim: true,
+      maxlength: [40, 'A tour name must have less or equal then 40 characters'],
+      minlength: [10, 'A tour name must have more or equal then 10 characters'],
+    },
+    slug: String,
+    duration: {
+      type: Number,
+      required: [true, 'A tour must have a duration!'],
+    },
+    maxGroupSize: {
+      type: Number,
+      required: [true, 'A tour must have a group size!'],
+    },
+    difficulty: {
+      type: String,
+      required: [true, 'A tour must have a difficulty!'],
+      enum: {
+        values: ['easy', 'medium', 'difficult'],
+        message: 'Select a valid difficulty: easy, medium , difficult',
+      },
+    },
+    ratingsAverage: {
+      type: Number,
+      default: 4.5,
+      min: [1, 'Ratings must be above 1.0'],
+      max: [5, 'Ratings must be below 5.0'],
+      set: (val) => Math.round(val * 10) / 10,
+    },
+    ratingsQuantity: {
+      type: Number,
+      default: 0,
+    },
+    price: {
+      type: Number,
+      required: [true, 'A tour must have a price!'],
+    },
+    priceDiscount: {
+      type: Number,
+      // validate: {
+      //   validator: function (val) {
+      //     // this only point to current doc on NEW document creation
+      //     return val < this.price;
+      //   },
+      //   message: 'Discount price ({VALUE}) must be less than original price',
+      // },
+    },
+    summary: {
+      type: String,
+      trim: true,
+      required: [true, 'A tour must have a summary!'],
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    imageCover: {
+      type: String,
+      required: [true, 'A tour must have a image cover!'],
+    },
+    images: [String],
+    createdAt: {
+      type: Date,
+      default: Date.now(),
+      select: false,
+    },
+    startDates: [Date],
+    secretTour: {
+      type: Boolean,
+      default: false,
+    },
+    startLocation: {
+      // GeoJSON
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: 'Point',
+          enum: ['Point'],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    guides: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+      },
+    ],
+  },
+  {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+tourSchema.index({ price: 1, ratingsAverage: -1 });
+tourSchema.index({ slug: 1 });
+tourSchema.index({ startLocation: '2dsphere' });
+
+tourSchema.virtual('durationWeeks').get(function () {
+  return this.duration / 7;
+});
+
+tourSchema.virtual('reviews', {
+  ref: 'Review',
+  foreignField: 'tour',
+  localField: '_id',
+});
+
+// DOCUMENT MIDDLEWARE: runs befor .save() and .create()
+tourSchema.pre('save', function (next) {
+  this.slug = slugify(this.name, { lower: true });
+  next();
+});
+
+// validate the priceDiscount before saving
+tourSchema.pre('save', function (next) {
+  if (this.priceDiscount > this.price) {
+    return next(new AppError('Discount price must be less than price', 400));
+  }
+  next();
+});
+
+// tourSchema.pre('save', async function (next) {
+//   const guidePromises = this.guides.map(async (id) => await User.findById(id));
+//   this.guides = await Promise.all(guidePromises);
+//   next();
+// });
+
+// tourSchema.pre('save', function (next) {
+//   console.log('Will save document...');
+//   next();
+// });
+
+// tourSchema.post('save', function (doc, next) {
+//   console.log(doc);
+//   next();
+// });
+
+// QUERY MIDDLEWARE
+tourSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: 'guides',
+    select: '-__v -passwordChangedAt',
+  });
+  next();
+});
+
+tourSchema.pre(/^find/, function (next) {
+  this.find({ secretTour: { $ne: true } });
+  next();
+});
+
+// AGGREGATION MIDDLEWARE
+// tourSchema.pre('aggregate', function (next) {
+//   this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+//   next();
+// });
+
+const Tour = mongoose.model('Tour', tourSchema);
+
+module.exports = Tour;
+
+
+const mongoose = require('mongoose');
+const validator = require('validator');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Please tell us your name'],
+  },
+  email: {
+    type: String,
+    required: [true, 'Please provide your email'],
+    unique: true,
+    lowercase: true,
+    validate: [validator.isEmail, 'Please provide a valid email'],
+  },
+  photo: String,
+  role: {
+    type: String,
+    enum: ['user', 'guide', 'lead-guide', 'admin'],
+    default: 'user',
+  },
+  password: {
+    type: String,
+    required: [true, 'Please provide a password'],
+    minlength: 8,
+    select: false,
+  },
+  passwordConfirm: {
+    type: String,
+    required: [true, 'Please confirm your password'],
+    validate: {
+      // this only works on CREATE and SAVE!!!
+      validator: function (el) {
+        return el === this.password;
+      },
+      message: 'Passwords are not the same',
+    },
+  },
+  passwordChangedAt: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
+  active: {
+    type: Boolean,
+    default: true,
+    select: false,
+  },
+});
+
+userSchema.pre('save', async function (next) {
+  // Only run this function if password was actually modified
+  if (!this.isModified('password')) return next();
+
+  // Hash the password with cost of 12
+  this.password = await bcrypt.hash(this.password, 12);
+
+  // Delete passwordConfirm field
+  this.passwordConfirm = undefined;
+  next();
+});
+
+userSchema.pre('save', function (next) {
+  if (!this.isModified('password') || this.isNew) return next();
+
+  this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
+userSchema.pre(/^find/, function (next) {
+  // this points to the current query
+  this.find({ active: { $ne: false } });
+  next();
+});
+
+userSchema.methods.correctPassword = async function (
+  candidatePassword,
+  userPassword
+) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      this.passwordChangedAt.getTime() / 1000,
+      10
+    );
+
+    return JWTTimestamp < changedTimestamp;
+  }
+
+  // False means NOT changed
+  return false;
+};
+
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // console.log({ resetToken }, this.passwordResetToken);
+
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
+module.exports = mongoose.model('User', userSchema);
+
+*********************
+دايما ال response بالشكل ده : 
+res.status(200).json({
+    status: 'success',
+    data: ex: tours
+})
+
+i'm using jwt tokens.
+
+مش لازم المشروع يكون معقد المهم يوضح مميزات كود الباك اند و تجاهل جزئية ال resetPassword, forgotPassword
