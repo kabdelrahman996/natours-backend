@@ -10,7 +10,11 @@ router.use('/:tourId/reviews', reviewRourer);
 
 router
   .route('/top-5-cheap')
-  .get(tourController.aliasTopTours, tourController.getAllTours);
+  .get(
+    bookingController.createBookingCheckout,
+    tourController.aliasTopTours,
+    tourController.getAllTours
+  );
 
 router.route('/tour-stats').get(tourController.getTourStats);
 
@@ -30,7 +34,7 @@ router.route('/distance/:latlng/unit/:unit').get(tourController.getDistances);
 
 router
   .route('/')
-  .get(bookingController.createBookingCheckout, tourController.getAllTours)
+  .get(tourController.getAllTours)
   .post(
     authController.protect,
     authController.restrictTo('admin', 'lead-guide'),
